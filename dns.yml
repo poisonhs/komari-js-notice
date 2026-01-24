@@ -1,0 +1,45 @@
+enable: true
+enhanced-mode: fake-ip
+fake-ip-range: 198.18.0.1/16
+nameserver:
+  - tls://8.8.8.8
+  - tls://1.1.1.1
+direct-nameserver:
+  - https://1.12.12.12/dns-query
+nameserver-policy:
+  geosite:cn:
+    - 223.5.5.5
+    - 119.29.29.29
+proxy-server-nameserver:
+  - https://1.12.12.12/dns-query
+ipv6: false
+listen: 0.0.0.0:7874
+default-nameserver:
+  - tls://1.12.12.12
+fake-ip-filter:
+  - '+.lan'
+  - '+.local'
+  - '+.localhost'
+  - 'zte.home'
+  - 'myzte.home'
+  - '+.msftconnecttest.com'
+  - '+.msftncsi.com'
+  - '+.ipv6.microsoft.com'
+  - 'connectivitycheck.gstatic.com'
+  - 'connectivitycheck.android.com'
+  - '+.pool.ntp.org'
+  - 'time.windows.com'
+  - 'time.nist.gov'
+  - 'time.apple.com'
+  - 'ntp.aliyun.com'
+  - '+.stun.*'
+  - 'stun.*'
+  - '+.music.163.com'
+  - '+.126.net'
+  - '+.tenpay.com'
+  - '+.tmall.com'
+  - '+.taobao.com'
+  - '+.jd.com'
+  - '+.aliyun.com'
+  - '+.bilibili.com'
+  - '+.mirror.ghproxy.com'
