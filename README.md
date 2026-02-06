@@ -1,1 +1,131 @@
-# 收藏
+const CONFIG = {
+  // 填入你的 TOKEN 地址
+  TOKEN: " ",
+  // 填入你的用户ID
+  CHAT_ID: " ",
+  // 面板地址
+  PANEL_URL: " ",
+  EVENT_MAP: {
+    'Offline': { cn: '离线警报', icon: '🔴', tag: '#Offline' },
+    'Online':  { cn: '恢复上线', icon: '🟢', tag: '#Online' },
+    'Alert':   { cn: '系统告警', icon: '⚠️', tag: '#Alert' },
+    'Renew':   { cn: '续费通知', icon: '💸', tag: '#Renew' },
+    'Expire':  { cn: '到期提醒', icon: '⏳', tag: '#Expire' },
+    'Test':    { cn: '测试消息', icon: '🧪', tag: '#Test' }
+  }
+};
+
+async function sendMessage(message, title, instanceId = null) {
+  if (!CONFIG.TOKEN || !CONFIG.CHAT_ID) return false;
+
+  const url = `https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`;
+  
+  let inline_keyboard = [[{ text: "📊 进入面板", url: CONFIG.PANEL_URL }]];
+  if (instanceId && instanceId !== '未知') {
+    inline_keyboard[0].push({ 
+      text: "🔗 实例详情", 
+      url: `${CONFIG.PANEL_URL}/instance/${instanceId}` 
+    });
+  }
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CONFIG.CHAT_ID,
+      text: `<b>${title}</b>\n\n${message}`,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: inline_keyboard }
+    }),
+  });
+  return resp.ok;
+}
+
+async function sendEvent(event) {
+  try {
+    const escapeHtml = (unsafe) => {
+        if (!unsafe) return "";
+        return String(unsafe)
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    };
+    
+    const getCSTTime = (timeStr) => {
+      if (!timeStr || timeStr.startsWith('0001')) return "未知时间";
+      const date = new Date(timeStr.replace(/\.\d+Z$/, 'Z')); 
+      const cst = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+      const f = (n) => n.toString().padStart(2, '0');
+      return `${f(cst.getUTCMonth() + 1)}-${f(cst.getUTCDate())} ${f(cst.getUTCHours())}:${f(cst.getUTCMinutes())}:${f(cst.getUTCSeconds())}`;
+    };
+
+    const formatSpec = (bytes) => {
+      if (!bytes || bytes === 0) return '?';
+      const gb = bytes / (1024 ** 3);
+      if (gb < 1) return Math.round(bytes / (1024 ** 2)) + 'M';
+      return Math.round(gb) + 'G';
+    };
+
+    const ev = CONFIG.EVENT_MAP[event.event] || { cn: event.event, icon: 'ℹ️', tag: '#Info' };
+    const title = `${ev.icon} ${ev.cn}`;
+    
+    let details = '';
+    let targetInstanceId = null;
+
+    const c = event.server || (event.clients && event.clients[0]);
+
+    if (c) {
+      targetInstanceId = c.uuid || c.id;
+      
+      const safeName = escapeHtml(c.name); 
+      const region = c.region ? `(<i>${escapeHtml(c.region.toUpperCase())}</i>)` : '';
+      
+      const cpu = c.cpu_cores ? `${c.cpu_cores}C` : '?';
+      const mem = formatSpec(c.mem_total);
+      const disk = formatSpec(c.disk_total);
+      
+      let specs = '';
+      if (cpu !== '?' || mem !== '?') {
+          specs = `⚙️ [ ${cpu} | ${mem} | ${disk} ]`;
+      }
+
+      let billInfo = '';
+      if (['Renew', 'Expire'].includes(event.event)) {
+         const price = c.price || 0;
+         if (price > 0) {
+            billInfo = `💰 <b>账单:</b> ${c.currency||'$'}${price} / ${c.billing_cycle||0}天`;
+         } else {
+             billInfo = `💰 <b>周期:</b> ${c.billing_cycle||0}天`;
+         }
+      }
+
+      const parts = [];
+      parts.push(`💻 <b>${safeName}</b> ${region}`);
+      if (specs) parts.push(specs);
+      if (billInfo) parts.push(billInfo);
+      
+      details = parts.join('\n\n');
+
+    } else {
+      details = `💻 <b>设备:</b> 未知设备`;
+    }
+
+    let note = '';
+    if (event.message && event.message.trim()) {
+      note = `\n📝 <b>备注:</b> ${escapeHtml(event.message)}`;
+    }
+
+    const body = `${details}\n\n` +
+                 `⏰ <b>时间:</b> ${getCSTTime(event.time)}\n` +
+                 `${note}\n\n` +
+                 `${ev.tag} #ServerMonitor`;
+
+    return await sendMessage(body, title, targetInstanceId);
+
+  } catch (error) {
+    return await sendMessage(`脚本错误: <pre>${error.message}</pre>`, '❌ 系统错误');
+  }
+}
