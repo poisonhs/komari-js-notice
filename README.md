@@ -1,3 +1,4 @@
+#
 const CONFIG = {
   // 填入你的 TOKEN 地址
   TOKEN: " ",
