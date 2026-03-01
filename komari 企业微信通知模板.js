@@ -1,9 +1,9 @@
 const CONFIG = {
-  // 填入你的 Webhook 地址
-  WECOM_WEBHOOK: " ",
+  // 已填入你的 Webhook 地址
+  WECOM_WEBHOOK: "",
   
-  // 面板地址
-  PANEL_URL: " ",
+  // 面板地址 (请确认是否需要修改)
+  PANEL_URL: "",
   
   EVENT_MAP: {
     'Offline': { cn: '离线警报', icon: '🔴', color: 'warning' },
@@ -60,9 +60,11 @@ async function sendEvent(event) {
     let detailsParts = [];
     let targetInstanceId = null;
 
+    // 尝试获取具体的服务器对象
     const c = event.server || (event.clients && event.clients[0]);
 
     if (c) {
+      // === 情况1：单台机器通知（如上下线） ===
       targetInstanceId = c.uuid || c.id;
       const name = c.name; 
       const region = c.region ? `(${c.region.toUpperCase()})` : '';
@@ -87,9 +89,19 @@ async function sendEvent(event) {
       }
 
     } else {
-      detailsParts.push(`💻 **设备:** 未知设备`);
+      // === 情况2：批量通知或无具体机器信息（如到期清单） ===
+      if (event.message && event.message.trim()) {
+        // 如果有附带信息，把附带信息直接当作通知列表显示，不显示“未知设备”
+        detailsParts.push(`📝 **通知列表:**\n${event.message}`);
+        // 将 message 清空，防止下方重复添加“备注”
+        event.message = null; 
+      } else {
+        // 既没有服务器对象也没有文字消息，才迫不得已显示未知设备
+        detailsParts.push(`💻 **设备:** 未知设备`);
+      }
     }
 
+    // 追加单独的备注信息（如果在上面已经被当作通知列表用了，这里就不会执行）
     if (event.message && event.message.trim()) {
       detailsParts.push(`📝 备注: ${event.message}`);
     }
